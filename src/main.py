@@ -81,7 +81,7 @@ class AleaAutoBooker:
 
                 if success:
                     logger.success(f"🎉 Booking successful on attempt {attempt}!")
-                    self.notifier.notify_booking_success(class_info, attempt)
+                    self.notifier.notify_booking_success(class_info, attempt, bot.last_screenshot_path)
                     return True
                 else:
                     logger.warning(f"Booking failed on attempt {attempt}")

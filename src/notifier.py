@@ -5,7 +5,9 @@ Sends email notifications about booking attempts
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, Optional
 from loguru import logger
 
@@ -19,13 +21,14 @@ class Notifier:
         self.smtp_server = "smtp.gmail.com"
         self.smtp_port = 587
 
-    def send_email(self, subject: str, body: str) -> bool:
+    def send_email(self, subject: str, body: str, screenshot_path: Optional[str] = None) -> bool:
         """
         Send an email notification
 
         Args:
             subject: Email subject
             body: Email body (plain text)
+            screenshot_path: Optional path to a screenshot to attach
 
         Returns:
             True if sent successfully, False otherwise
@@ -36,7 +39,7 @@ class Notifier:
 
         try:
             # Create message
-            msg = MIMEMultipart('alternative')
+            msg = MIMEMultipart('mixed')
             msg['From'] = Config.EMAIL_ADDRESS
             msg['To'] = Config.NOTIFICATION_EMAIL
             msg['Subject'] = subject
@@ -44,6 +47,13 @@ class Notifier:
             # Add plain text body
             text_part = MIMEText(body, 'plain')
             msg.attach(text_part)
+
+            # Attach screenshot if provided
+            if screenshot_path and Path(screenshot_path).exists():
+                with open(screenshot_path, 'rb') as f:
+                    img = MIMEImage(f.read(), name=Path(screenshot_path).name)
+                    msg.attach(img)
+                logger.info(f"Attached screenshot: {screenshot_path}")
 
             # Connect to Gmail's SMTP server
             logger.info(f"Sending notification email to {Config.NOTIFICATION_EMAIL}...")
@@ -59,15 +69,15 @@ class Notifier:
             logger.error(f"Failed to send notification email: {e}")
             return False
 
-    def notify_booking_success(self, class_info: Dict, attempt_number: int):
+    def notify_booking_success(self, class_info: Dict, attempt_number: int, screenshot_path: Optional[str] = None):
         """Send notification when booking succeeds"""
         class_name = class_info.get('class_name', 'Unknown Class')
 
         subject = f"✓ Auto Booked - {class_name}"
 
-        body = f"""Booking Successful!"""
+        body = "Booking Successful!"
 
-        self.send_email(subject, body)
+        self.send_email(subject, body, screenshot_path=screenshot_path)
 
     def notify_booking_failure(self, class_info: Dict, total_attempts: int, error: Optional[str] = None):
         """Send notification when all booking attempts fail"""

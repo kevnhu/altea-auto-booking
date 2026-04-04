@@ -86,16 +86,21 @@ class EmailMonitor:
             else:
                 logger.warning("   Could not extract class URL from email!")
 
-        # Extract event name - looks for "Event: XXX" pattern
-        event_match = re.search(r'Event:\s*([^\n]+)', content, re.IGNORECASE)
-        if event_match:
-            info['class_name'] = event_match.group(1).strip()
+        # Extract event name from subject line
+        # Altea subjects look like: "A Spot Has Opened Up in LF3 | Tread & Turf!"
+        subject_match = re.search(r'Opened Up in (.+?)!?\s*$', email_subject)
+        if subject_match:
+            info['class_name'] = subject_match.group(1).strip()
         else:
-            # Try to extract from subject line as fallback
-            # Subject often contains the class name like "A spot in Underground Ride is available!"
+            # Fallback: "A spot in Underground Ride is available!"
             subject_match = re.search(r'spot in (.+?) is available', email_subject, re.IGNORECASE)
             if subject_match:
                 info['class_name'] = subject_match.group(1).strip()
+            else:
+                # Fallback: "Event: XXX" in email body
+                event_match = re.search(r'Event:\s*([^\n]+)', content, re.IGNORECASE)
+                if event_match:
+                    info['class_name'] = event_match.group(1).strip()
 
         # Extract date - looks for patterns like "Date: Tuesday January 20th"
         date_match = re.search(r'Date:\s*(.+?)(?:\n|Time:|Location:)', content, re.IGNORECASE)

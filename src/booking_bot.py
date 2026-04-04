@@ -24,6 +24,7 @@ class BookingBot:
         self.page: Optional[Page] = None
         self.context = None
         self.playwright = None
+        self.last_screenshot_path: Optional[str] = None
 
     def start_browser(self, headless: bool = True):
         """
@@ -402,6 +403,7 @@ class BookingBot:
             # Take a success screenshot
             screenshot_path = Config.LOGS_DIR / f"booking_success_{int(time.time())}.png"
             self.page.screenshot(path=str(screenshot_path))
+            self.last_screenshot_path = str(screenshot_path)
             logger.info(f"Screenshot saved to: {screenshot_path}")
 
             logger.success("✓ Booking completed!")

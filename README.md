@@ -4,6 +4,8 @@ Automatically books gym classes at Altea (myaltea.app) when you receive a waitli
 
 When someone cancels and a spot opens up, Altea sends you an email with a "Book Now" link. This system monitors your Gmail inbox **every second** and instantly attempts to book the class before it fills up again (typically within 10 seconds).
 
+**This is designed to run continuously on a dedicated machine** (e.g. an old laptop, a Raspberry Pi, or a home server) so it can monitor your email 24/7 and book classes the moment a spot opens up.
+
 ---
 
 ## ⚡ Quick Start Guide
@@ -16,16 +18,20 @@ cd altea-automatic-booking
 # Install Python packages
 pip install -r requirements.txt
 
-# Install Firefox browser for Playwright
-python3 -m playwright install firefox
+# Install Chromium for Playwright (fallback browser)
+python3 -m playwright install chromium
 ```
+
+The bot uses your **locally installed browser** (Brave or Chrome) for booking, which avoids bot detection. Make sure you have one of these installed:
+- **Brave** (recommended): The bot looks for `/usr/bin/brave-browser` by default
+- **Chrome**: Update the `executable_path` in `src/booking_bot.py` to your Chrome path (e.g. `/usr/bin/google-chrome`)
 
 > **Ubuntu/Debian users:** `pip install` may fail with an "externally-managed-environment" error. Use a virtual environment instead:
 > ```bash
 > python3 -m venv venv
 > source venv/bin/activate  # run this each time you open a new terminal
 > pip install -r requirements.txt
-> python3 -m playwright install firefox
+> python3 -m playwright install chromium
 > ```
 
 ### Step 2: Set Up Gmail App Password (5 minutes)
@@ -160,13 +166,13 @@ It will:
 - ✅ Send you an email notification of the result
 - ✅ Continue monitoring for the next notification
 
-**Leave it running in the background!**
+**Leave it running continuously!** This works best on a dedicated machine (old laptop, Raspberry Pi, home server) that stays on 24/7. Spots can open up at any time — the bot needs to be running to catch them.
 
 To stop: Press `Ctrl+C`
 
 ---
 
-## 🖥️ Running as Background Service
+## 🖥️ Running Continuously
 
 ### Option 1: Simple Background (Linux/Mac)
 
