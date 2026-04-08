@@ -18,7 +18,6 @@ class EmailMonitor:
 
     def __init__(self):
         self.mailbox = None
-        self.processed_urls = set()
         self.last_reconnect_time = 0
         self.reconnect_interval = 60 * 10  # Reconnect every 10 minutes
 
@@ -154,13 +153,7 @@ class EmailMonitor:
                 self.mailbox.flag(msg.uid, ['\\Seen'], True)
                 logger.info(f"   Marked email as read")
 
-                # Skip if we already processed this class URL in this session
-                class_url = class_info.get('class_url')
-                if class_url and class_url in self.processed_urls:
-                    logger.info(f"   Skipping duplicate booking URL: {class_url}")
-                    continue
-                if class_url:
-                    self.processed_urls.add(class_url)
+                # Skip — mark-as-read above prevents reprocessing
 
                 return class_info
 
@@ -213,6 +206,10 @@ class EmailMonitor:
                 if class_info:
                     logger.success("✓ Notification detected! Triggering booking bot...")
                     callback(class_info)
+                    # Reconnect after booking — connection likely went stale during the attempt
+                    self.disconnect()
+                    if self.connect():
+                        self.last_reconnect_time = time.time()
 
                 # Wait before next check
                 time.sleep(Config.POLL_INTERVAL_SECONDS)
