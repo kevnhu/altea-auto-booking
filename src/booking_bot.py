@@ -398,7 +398,7 @@ class BookingBot:
 
             # Wait for the booking to fully process
             self.page.wait_for_load_state('networkidle')
-            self.page.wait_for_timeout(6000)
+            self.page.wait_for_timeout(10000)
 
             # Take a success screenshot
             screenshot_path = Config.LOGS_DIR / f"booking_success_{int(time.time())}.png"
