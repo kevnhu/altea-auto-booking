@@ -334,58 +334,15 @@ class BookingBot:
                 except:
                     pass
 
-                # Strategy 1: role-based locator
-                for name in ["Confirm Booking", "Confirm"]:
-                    try:
-                        btn = self.page.get_by_role("button", name=name)
-                        if btn.count() > 0:
-                            btn.first.scroll_into_view_if_needed()
-                            btn.first.hover()
-                            self.page.wait_for_timeout(random.randint(800, 1500))
-                            btn.first.click()
-                            logger.success(f"✓ Clicked '{name}' via role locator")
-                            confirm_clicked = True
-                            break
-                    except:
-                        continue
-
-                # Strategy 2: text selectors
-                if not confirm_clicked:
-                    for selector in [
-                        'button:has-text("Confirm Booking")',
-                        'button:has-text("Confirm")',
-                    ]:
-                        try:
-                            locator = self.page.locator(selector)
-                            if locator.count() > 0:
-                                locator.first.scroll_into_view_if_needed()
-                                self.page.wait_for_timeout(1000)
-                                locator.first.click()
-                                logger.success(f"✓ Clicked confirm using: {selector}")
-                                confirm_clicked = True
-                                break
-                        except:
-                            continue
-
-                # Strategy 3: JavaScript click as last resort
-                if not confirm_clicked:
-                    try:
-                        clicked = self.page.evaluate('''() => {
-                            const buttons = document.querySelectorAll('button');
-                            for (const btn of buttons) {
-                                if (btn.textContent.includes('Confirm')) {
-                                    btn.scrollIntoView();
-                                    btn.click();
-                                    return btn.textContent.trim();
-                                }
-                            }
-                            return null;
-                        }''')
-                        if clicked:
-                            logger.success(f"✓ Clicked '{clicked}' via JavaScript")
-                            confirm_clicked = True
-                    except Exception as e:
-                        logger.warning(f"JavaScript click failed: {e}")
+                # Click "Confirm Booking" button
+                btn = self.page.get_by_role("button", name="Confirm Booking")
+                btn.wait_for(state="visible", timeout=10000)
+                btn.scroll_into_view_if_needed()
+                btn.hover()
+                self.page.wait_for_timeout(random.randint(800, 1500))
+                btn.click()
+                logger.success("✓ Clicked 'Confirm Booking'")
+                confirm_clicked = True
 
                 if not confirm_clicked:
                     raise Exception("Could not find Confirm Booking button with any strategy")
