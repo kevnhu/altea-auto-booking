@@ -13,7 +13,7 @@ When someone cancels and a spot opens up, Altea sends you an email with a "Book 
 ### Step 1: Install Dependencies (5 minutes)
 
 ```bash
-cd altea-automatic-booking
+cd altea-auto-booking
 
 # Install Python packages
 pip install -r requirements.txt
@@ -219,8 +219,8 @@ After=network.target
 [Service]
 Type=simple
 User=your-username
-WorkingDirectory=/home/your-username/altea-automatic-booking
-ExecStart=/usr/bin/python3 /home/your-username/altea-automatic-booking/src/main.py
+WorkingDirectory=/home/your-username/altea-auto-booking
+ExecStart=/usr/bin/python3 /home/your-username/altea-auto-booking/src/main.py
 Restart=always
 RestartSec=10
 
@@ -246,7 +246,7 @@ journalctl -u altea-booking -f
 1. Create `run_booking.bat`:
 ```batch
 @echo off
-cd C:\path\to\altea-automatic-booking
+cd C:\path\to\altea-auto-booking
 python src\main.py
 ```
 
@@ -491,7 +491,7 @@ python3 src/booking_bot.py
 ## 📂 Project Structure
 
 ```
-altea-automatic-booking/
+altea-auto-booking/
 ├── src/
 │   ├── main.py              # Main orchestrator - run this!
 │   ├── config.py            # Configuration loader

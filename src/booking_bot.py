@@ -4,7 +4,6 @@ Uses Playwright to automate booking on Altea website
 """
 import time
 import random
-from pathlib import Path
 from typing import Dict, Optional
 from playwright.sync_api import sync_playwright, Page, TimeoutError as PlaywrightTimeout
 from loguru import logger
@@ -34,6 +33,9 @@ class BookingBot:
             headless: If False, shows the browser window (useful for debugging)
         """
         try:
+            # Clean up any leftover Playwright state from previous runs
+            self.stop_browser()
+
             logger.info("Starting browser...")
             self.playwright = sync_playwright().start()
 
@@ -72,123 +74,6 @@ class BookingBot:
             logger.info("Browser stopped")
         except Exception as e:
             logger.error(f"Error stopping browser: {e}")
-
-    def login(self) -> bool:
-        """
-        Login to Altea website
-
-        NOTE: You'll need to customize the selectors based on Altea's actual login page
-        """
-        try:
-            logger.info(f"Navigating to {Config.ALTEA_URL}...")
-            self.page.goto(Config.ALTEA_URL, timeout=30000)
-
-            # Wait a moment for the page to load
-            self.page.wait_for_load_state('networkidle')
-
-            # TODO: Customize these selectors based on actual Altea website
-            # You'll need to inspect the login form and replace these selectors
-
-            # Example selectors (THESE NEED TO BE CUSTOMIZED):
-            # Look for username field - common selectors:
-            # - input[name="username"]
-            # - input[type="email"]
-            # - #username
-            # - .username-input
-
-            logger.info("Filling in login credentials...")
-
-            # Try common username field selectors
-            username_selectors = [
-                'input[name="username"]',
-                'input[name="email"]',
-                'input[type="email"]',
-                '#username',
-                '#email',
-                'input[placeholder*="email" i]',
-                'input[placeholder*="username" i]'
-            ]
-
-            username_filled = False
-            for selector in username_selectors:
-                try:
-                    if self.page.locator(selector).count() > 0:
-                        self.page.fill(selector, Config.ALTEA_USERNAME, timeout=5000)
-                        username_filled = True
-                        logger.info(f"✓ Found username field: {selector}")
-                        break
-                except:
-                    continue
-
-            if not username_filled:
-                logger.error("Could not find username field. Please inspect the login page.")
-                return False
-
-            # Try common password field selectors
-            password_selectors = [
-                'input[name="password"]',
-                'input[type="password"]',
-                '#password'
-            ]
-
-            password_filled = False
-            for selector in password_selectors:
-                try:
-                    if self.page.locator(selector).count() > 0:
-                        self.page.fill(selector, Config.ALTEA_PASSWORD, timeout=5000)
-                        password_filled = True
-                        logger.info(f"✓ Found password field: {selector}")
-                        break
-                except:
-                    continue
-
-            if not password_filled:
-                logger.error("Could not find password field. Please inspect the login page.")
-                return False
-
-            # Try to find and click login button
-            login_button_selectors = [
-                'button[type="submit"]',
-                'input[type="submit"]',
-                'button:has-text("Log in")',
-                'button:has-text("Sign in")',
-                'button:has-text("Login")',
-                '.login-button',
-                '#login-button'
-            ]
-
-            button_clicked = False
-            for selector in login_button_selectors:
-                try:
-                    if self.page.locator(selector).count() > 0:
-                        self.page.click(selector, timeout=5000)
-                        button_clicked = True
-                        logger.info(f"✓ Clicked login button: {selector}")
-                        break
-                except:
-                    continue
-
-            if not button_clicked:
-                logger.warning("Could not find login button, trying form submit...")
-                self.page.keyboard.press('Enter')
-
-            # Wait for navigation after login
-            self.page.wait_for_load_state('networkidle', timeout=15000)
-
-            # Check if login was successful (customize this check)
-            current_url = self.page.url
-            logger.info(f"After login, URL: {current_url}")
-
-            logger.success("✓ Login successful! Session saved via persistent profile.")
-
-            return True
-
-        except PlaywrightTimeout as e:
-            logger.error(f"Timeout during login: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"Login failed: {e}")
-            return False
 
     def navigate_to_class(self, class_info: Dict) -> bool:
         """
@@ -265,7 +150,7 @@ class BookingBot:
                             button = locator.first
                             logger.info(f"✓ Found booking button using: {selector}")
                             break
-                    except:
+                    except Exception:
                         continue
                 if button:
                     break
@@ -273,10 +158,9 @@ class BookingBot:
 
             if not button:
                 logger.error("Could not find 'Book Now' button on the page")
-                # Take a screenshot for debugging
                 screenshot_path = Config.LOGS_DIR / f"no_button_{int(time.time())}.png"
                 self.page.screenshot(path=str(screenshot_path))
-                logger.info(f"Screenshot saved to: {screenshot_path}")
+                self.last_screenshot_path = str(screenshot_path)
                 return False
 
             # Wait for the button to become enabled (not disabled)
@@ -294,7 +178,7 @@ class BookingBot:
                         button.click(timeout=5000)
                         logger.success("✓ Clicked 'Book Now' button!")
                         break
-                except:
+                except Exception:
                     pass
 
                 self.page.wait_for_timeout(500)
@@ -311,30 +195,15 @@ class BookingBot:
             # Check if we're waitlisted — spot was taken by someone else
             if (self.page.locator('text="Waitlisted"').count() > 0 or
                     self.page.locator('text="You just missed it"').count() > 0):
-                logger.info("Status: Waitlisted — spot was taken, skipping retries")
+                logger.info("Status: Waitlisted — spot was taken")
+                screenshot_path = Config.LOGS_DIR / f"waitlisted_{int(time.time())}.png"
+                self.page.screenshot(path=str(screenshot_path))
+                self.last_screenshot_path = str(screenshot_path)
                 raise AlreadyWaitlistedError()
 
             # Click "Confirm Booking" - required to complete the booking
             logger.info("Waiting for 'Confirm Booking' button...")
-            screenshot_path = Config.LOGS_DIR / f"pre_confirm_{int(time.time())}.png"
-            self.page.screenshot(path=str(screenshot_path), full_page=True)
-            logger.info(f"Pre-confirm screenshot saved to: {screenshot_path}")
             try:
-                confirm_clicked = False
-
-                # Log all visible buttons for debugging
-                try:
-                    buttons = self.page.locator('button').all()
-                    logger.info(f"Found {len(buttons)} buttons on page:")
-                    for b in buttons:
-                        try:
-                            logger.info(f"   Button: '{b.text_content().strip()}' visible={b.is_visible()}")
-                        except:
-                            pass
-                except:
-                    pass
-
-                # Click "Confirm Booking" button
                 btn = self.page.get_by_role("button", name="Confirm Booking")
                 btn.wait_for(state="visible", timeout=10000)
                 btn.scroll_into_view_if_needed()
@@ -342,20 +211,16 @@ class BookingBot:
                 self.page.wait_for_timeout(random.randint(800, 1500))
                 btn.click()
                 logger.success("✓ Clicked 'Confirm Booking'")
-                confirm_clicked = True
-
-                if not confirm_clicked:
-                    raise Exception("Could not find Confirm Booking button with any strategy")
             except Exception as e:
                 logger.error(f"Could not find or click 'Confirm Booking' button: {e}")
                 screenshot_path = Config.LOGS_DIR / f"booking_error_{int(time.time())}.png"
                 self.page.screenshot(path=str(screenshot_path))
-                logger.info(f"Error screenshot saved to: {screenshot_path}")
+                self.last_screenshot_path = str(screenshot_path)
                 return False
 
             # Wait for the booking to fully process
             self.page.wait_for_load_state('networkidle')
-            self.page.wait_for_timeout(10000)
+            self.page.wait_for_timeout(60000)
 
             # Take a success screenshot
             screenshot_path = Config.LOGS_DIR / f"booking_success_{int(time.time())}.png"
@@ -370,12 +235,11 @@ class BookingBot:
             raise
         except Exception as e:
             logger.error(f"Failed to book class: {e}")
-            # Take an error screenshot
             try:
                 screenshot_path = Config.LOGS_DIR / f"booking_error_{int(time.time())}.png"
                 self.page.screenshot(path=str(screenshot_path))
-                logger.info(f"Error screenshot saved to: {screenshot_path}")
-            except:
+                self.last_screenshot_path = str(screenshot_path)
+            except Exception:
                 pass
             return False
 
@@ -427,12 +291,11 @@ class BookingBot:
             raise
         except Exception as e:
             logger.error(f"Booking attempt failed: {e}")
-            # Take an error screenshot
             try:
                 screenshot_path = Config.LOGS_DIR / f"attempt_error_{int(time.time())}.png"
                 self.page.screenshot(path=str(screenshot_path))
-                logger.info(f"Error screenshot: {screenshot_path}")
-            except:
+                self.last_screenshot_path = str(screenshot_path)
+            except Exception:
                 pass
             return False
 

@@ -39,7 +39,7 @@ class EmailMonitor:
             try:
                 self.mailbox.logout()
                 logger.info("Disconnected from email")
-            except:
+            except Exception:
                 pass
 
     def extract_class_info(self, email_body: str, email_subject: str, email_html: str = None) -> Dict[str, str]:
@@ -165,7 +165,7 @@ class EmailMonitor:
             logger.info("Reconnecting to email server...")
             try:
                 self.disconnect()
-            except:
+            except Exception:
                 pass
             if self.connect():
                 self.last_reconnect_time = time.time()

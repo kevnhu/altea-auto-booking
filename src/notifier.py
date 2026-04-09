@@ -6,7 +6,6 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
-from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 from loguru import logger
@@ -69,38 +68,15 @@ class Notifier:
             logger.error(f"Failed to send notification email: {e}")
             return False
 
-    def notify_booking_success(self, class_info: Dict, attempt_number: int, screenshot_path: Optional[str] = None):
+    def notify_booking_success(self, class_info: Dict, screenshot_path: Optional[str] = None):
         """Send notification when booking succeeds"""
         class_name = class_info.get('class_name', 'Unknown Class')
+        self.send_email(f"✓ Auto Booked - {class_name}", "Booking Successful!", screenshot_path=screenshot_path)
 
-        subject = f"✓ Auto Booked - {class_name}"
-
-        body = "Booking Successful!"
-
-        self.send_email(subject, body, screenshot_path=screenshot_path)
-
-    def notify_booking_failure(self, class_info: Dict, total_attempts: int, error: Optional[str] = None):
-        """Send notification when all booking attempts fail"""
+    def notify_booking_failure(self, class_info: Dict, reason: str = "Unknown", screenshot_path: Optional[str] = None):
+        """Send notification when booking fails, with reason in subject and screenshot attached"""
         class_name = class_info.get('class_name', 'Unknown Class')
-
-        subject = f"✗ Auto Booking Failed - {class_name}"
-
-        body = "Booking Failed"
-
-        if error:
-            body += f"\n\nError: {error}"
-
-        self.send_email(subject, body)
-
-    def notify_booking_attempt(self, class_info: Dict, attempt_number: int):
-        """Send notification for each booking attempt (optional, might be too many emails)"""
-        class_name = class_info.get('class_name', 'Unknown Class')
-
-        subject = f"⏳ Booking Attempt {attempt_number} - {class_name}"
-
-        body = f"Booking attempt {attempt_number} in progress."
-
-        self.send_email(subject, body)
+        self.send_email(f"✗ Booking Failed ({reason}) - {class_name}", f"Booking Failed: {reason}", screenshot_path=screenshot_path)
 
 
 if __name__ == '__main__':
@@ -121,7 +97,7 @@ if __name__ == '__main__':
     notifier = Notifier()
 
     print("\n1. Testing success notification...")
-    notifier.notify_booking_success(test_class_info, 1)
+    notifier.notify_booking_success(test_class_info)
 
     print("\n2. Testing failure notification...")
-    notifier.notify_booking_failure(test_class_info, 2, "Could not find booking button")
+    notifier.notify_booking_failure(test_class_info, "Could not find booking button")

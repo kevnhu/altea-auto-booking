@@ -4,9 +4,8 @@ Main orchestrator for Altea Auto-Booking System
 This script:
 1. Monitors email for waitlist notifications (checks every 1 second)
 2. When notification arrives, attempts to book the class
-3. Retries up to MAX_RETRIES times
-4. Sends email notifications on success/failure
-5. Continues monitoring for next notification
+3. Sends email notifications on success/failure
+4. Continues monitoring for next notification
 """
 import sys
 import time
@@ -23,7 +22,7 @@ from booking_bot import BookingBot, AlreadyWaitlistedError
 from notifier import Notifier
 
 
-class AleaAutoBooker:
+class AlteaAutoBooker:
     """Main orchestrator for the auto-booking system"""
 
     def __init__(self):
@@ -53,60 +52,47 @@ class AleaAutoBooker:
 
         logger.info(f"Logging to: {log_file}")
 
-    def try_booking_with_retries(self, class_info: Dict) -> bool:
+    def try_booking(self, class_info: Dict) -> bool:
         """
-        Attempt to book a class with retry logic
+        Attempt to book a class (single attempt)
 
         Args:
             class_info: Class details from email
 
         Returns:
-            True if booking succeeded, False if all attempts failed
+            True if booking succeeded, False otherwise
         """
-        max_retries = Config.MAX_RETRIES
+        bot = BookingBot()
 
-        for attempt in range(1, max_retries + 1):
-            logger.info(f"═══ Booking Attempt {attempt}/{max_retries} ═══")
-
-            bot = BookingBot()
-
-            try:
-                # Start browser
-                if not bot.start_browser(headless=False):
-                    logger.error(f"Failed to start browser on attempt {attempt}")
-                    continue
-
-                # Attempt booking
-                success = bot.attempt_booking(class_info)
-
-                if success:
-                    logger.success(f"🎉 Booking successful on attempt {attempt}!")
-                    self.notifier.notify_booking_success(class_info, attempt, bot.last_screenshot_path)
-                    return True
-                else:
-                    logger.warning(f"Booking failed on attempt {attempt}")
-
-            except AlreadyWaitlistedError:
-                logger.info("Already waitlisted — spot was taken, no point retrying")
-                self.notifier.notify_booking_failure(class_info, attempt)
+        try:
+            if not bot.start_browser(headless=False):
+                logger.error("Failed to start browser")
                 return False
 
-            except Exception as e:
-                logger.error(f"Error during booking attempt {attempt}: {e}")
+            success = bot.attempt_booking(class_info)
 
-            finally:
-                # Always stop browser
+            if success:
+                logger.success("🎉 Booking successful!")
+                self.notifier.notify_booking_success(class_info, bot.last_screenshot_path)
                 bot.stop_browser()
+                return True
+            else:
+                logger.warning("Booking failed")
+                self.notifier.notify_booking_failure(class_info, "Booking failed", bot.last_screenshot_path)
+                bot.stop_browser()
+                return False
 
-            # Wait a moment before retrying (if not last attempt)
-            if attempt < max_retries:
-                logger.info(f"Waiting 2 seconds before retry...")
-                time.sleep(2)
+        except AlreadyWaitlistedError:
+            logger.info("Already waitlisted — spot was taken")
+            self.notifier.notify_booking_failure(class_info, "Waitlisted", bot.last_screenshot_path)
+            bot.stop_browser()
+            return False
 
-        # All attempts failed
-        logger.error(f"❌ All {max_retries} booking attempts failed")
-        self.notifier.notify_booking_failure(class_info, max_retries)
-        return False
+        except Exception as e:
+            logger.error(f"Error during booking: {e}")
+            self.notifier.notify_booking_failure(class_info, str(e), bot.last_screenshot_path)
+            bot.stop_browser()
+            return False
 
     def handle_notification(self, class_info: Dict):
         """
@@ -124,13 +110,12 @@ class AleaAutoBooker:
         logger.info(f"Instructor: {class_info.get('instructor', 'Unknown')}")
         logger.info("=" * 60)
 
-        # Attempt booking with retries
-        success = self.try_booking_with_retries(class_info)
+        success = self.try_booking(class_info)
 
         if success:
             logger.success("✅ Booking completed successfully!")
         else:
-            logger.warning("⚠️  Booking failed after all retries")
+            logger.warning("⚠️  Booking failed")
 
         logger.info("Resuming email monitoring...")
         logger.info("")
@@ -150,7 +135,6 @@ class AleaAutoBooker:
             logger.info(f"Email: {Config.EMAIL_ADDRESS}")
             logger.info(f"Altea URL: {Config.ALTEA_URL}")
             logger.info(f"Poll interval: {Config.POLL_INTERVAL_SECONDS} second(s)")
-            logger.info(f"Max retries: {Config.MAX_RETRIES}")
             logger.info(f"Notifications: {'Enabled' if Config.SEND_NOTIFICATIONS else 'Disabled'}")
             logger.info("=" * 60)
             logger.info("")
@@ -170,5 +154,5 @@ class AleaAutoBooker:
 
 
 if __name__ == '__main__':
-    booker = AleaAutoBooker()
+    booker = AlteaAutoBooker()
     booker.run()

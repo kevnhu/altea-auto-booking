@@ -30,7 +30,6 @@ class Config:
     EMAIL_SUBJECT_FILTER = os.getenv('EMAIL_SUBJECT_FILTER', 'waitlist')
 
     # Booking Configuration
-    MAX_RETRIES = int(os.getenv('MAX_RETRIES', '2'))
     POLL_INTERVAL_SECONDS = int(os.getenv('POLL_INTERVAL_SECONDS', '1'))
 
     # Notification Settings
